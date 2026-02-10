@@ -1,109 +1,95 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox
 
-class WooriCostSolver:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("WOORI COST SOLVER v1.0")
-        self.root.geometry("400x700")
-        self.root.configure(bg='#121212')  # 다크 모드 배경
-
-        # 기본값 설정
-        self.labor_cost = 2000
-        self.extra_cost = 700
+def calculate():
+    try:
+        # 1. 입력값 읽어오기
+        coil_p = float(entry_coil_price.get())
+        core_p = float(entry_core_price.get())
+        thick = float(entry_thickness.get())
         
-        self.setup_ui()
-
-    def setup_ui(self):
-        # 스타일 설정
-        style = ttk.Style()
-        style.theme_use('clam')
-        style.configure("TLabel", background="#121212", foreground="#D4AF37", font=('Apple SD Gothic Neo', 10))
+        # 2. 가공비 (인건비 2000 + 소모품 700)
+        labor_plus_extra = 2700
         
-        # 타이틀
-        tk.Label(self.root, text="WOORI COST SOLVER", bg='#121212', fg='#D4AF37', 
-                 font=('Arial', 18, 'bold'), pady=20).pack()
+        # 3. 코일 조합에 따른 중량 설정
+        coil_type = var_coil_type.get()
+        # 내부/외부(1040+1219) = 8.867kg, 내부/내부(1040+1040) = 8.164kg
+        coil_w = 8.867 if coil_type == "내외" else 8.164
+        
+        # 4. 심재 종류에 따른 계산
+        core_type = var_core_type.get()
+        cost_core = 0
+        
+        if core_type == "EPS":
+            # EPS는 50T 보드값 기준 비례 계산
+            cost_core = (thick / 50) * core_p
+        elif core_type == "GW48":
+            # 그라스울 48k: 두께(m) * 밀도(48) * 폭(1.219) * kg단가
+            cost_core = (thick / 1000) * 48 * 1.219 * core_p
+        elif core_type == "GW64":
+            # 그라스울 64k: 두께(m) * 밀도(64) * 폭(1.219) * kg단가
+            cost_core = (thick / 1000) * 64 * 1.219 * core_p
+        else: # 우레탄
+            cost_core = (thick / 50) * core_p
 
-        # 입력 영역 컨테이너
-        container = tk.Frame(self.root, bg='#121212', padx=30)
-        container.pack(fill='both', expand=True)
+        # 5. 최종 합계
+        total = (coil_p * coil_w) + cost_core + labor_plus_extra
+        
+        label_result.config(text=f"{int(total):,} 원")
+        
+    except ValueError:
+        messagebox.showerror("입력 오류", "숫자만 입력해주세요 (소수점 가능)")
 
-        # 1. 코일 매입가
-        tk.Label(container, text="코일 매입가 (kg당)", bg='#121212', fg='#888').pack(anchor='w')
-        self.ent_coil_price = tk.Entry(container, bg='#2A2A2A', fg='white', insertbackground='white', borderwidth=0)
-        self.ent_coil_price.insert(0, "1100")
-        self.ent_coil_price.pack(fill='x', pady=(0, 15), ipady=8)
+# --- GUI 설정 ---
+root = tk.Tk()
+root.title("WOORI COST SOLVER")
+root.geometry("350x550")
+root.configure(bg='#1e1e1e') # 다크모드 배경
 
-        # 2. 심재 종류 선택
-        tk.Label(container, text="심재 종류 선택", bg='#121212', fg='#888').pack(anchor='w')
-        self.var_core = tk.StringVar(value="EPS")
-        core_combo = ttk.Combobox(container, textvariable=self.var_core, values=["EPS", "그라스울(48k)", "그라스울(64k)", "우레탄"])
-        core_combo.pack(fill='x', pady=(0, 15), ipady=5)
+# 폰트 설정
+font_label = ("Arial", 10, "bold")
+font_input = ("Arial", 12)
 
-        # 3. 심재 매입 단가 (EPS 보드값 or GW kg가)
-        self.lbl_core_price = tk.Label(container, text="심재 단가 (EPS 50T 보드값)", bg='#121212', fg='#888')
-        self.lbl_core_price.pack(anchor='w')
-        self.ent_core_price = tk.Entry(container, bg='#2A2A2A', fg='white', insertbackground='white', borderwidth=0)
-        self.ent_core_price.insert(0, "3650")
-        self.ent_core_price.pack(fill='x', pady=(0, 15), ipady=8)
+# 입력 필드들
+def create_label(text):
+    return tk.Label(root, text=text, bg='#1e1e1e', fg='#d4af37', font=font_label)
 
-        # 4. 두께 (T)
-        tk.Label(container, text="제품 두께 (T 입력)", bg='#121212', fg='#888').pack(anchor='w')
-        self.ent_thickness = tk.Entry(container, bg='#2A2A2A', fg='white', insertbackground='white', borderwidth=0)
-        self.ent_thickness.insert(0, "150")
-        self.ent_thickness.pack(fill='x', pady=(0, 15), ipady=8)
+create_label("\n1. 코일 매입가 (kg당)").pack()
+entry_coil_price = tk.Entry(root, font=font_input, justify='center')
+entry_coil_price.insert(0, "1100")
+entry_coil_price.pack(pady=5)
 
-        # 5. 코일 조합
-        tk.Label(container, text="코일 조합 선택", bg='#121212', fg='#888').pack(anchor='w')
-        self.var_coil_type = tk.StringVar(value="내부/외부 (1040/1219)")
-        coil_combo = ttk.Combobox(container, textvariable=self.var_coil_type, 
-                                  values=["내부/외부 (1040/1219)", "내부/내부 (1040/1040)"])
-        coil_combo.pack(fill='x', pady=(0, 20), ipady=5)
+create_label("2. 심재 종류").pack()
+var_core_type = tk.StringVar(value="EPS")
+frame_core = tk.Frame(root, bg='#1e1e1e')
+frame_core.pack()
+tk.Radiobutton(frame_core, text="EPS", variable=var_core_type, value="EPS", bg='#1e1e1e', fg='white', selectcolor='black').pack(side='left')
+tk.Radiobutton(frame_core, text="GW48k", variable=var_core_type, value="GW48", bg='#1e1e1e', fg='white', selectcolor='black').pack(side='left')
+tk.Radiobutton(frame_core, text="GW64k", variable=var_core_type, value="GW64", bg='#1e1e1e', fg='white', selectcolor='black').pack(side='left')
 
-        # 계산 버튼
-        calc_btn = tk.Button(container, text="RUN CALCULATION", bg='#D4AF37', fg='black', 
-                             font=('Arial', 12, 'bold'), borderwidth=0, command=self.calculate)
-        calc_btn.pack(fill='x', ipady=15)
+create_label("3. 심재 단가 (보드값 또는 kg단가)").pack()
+entry_core_price = tk.Entry(root, font=font_input, justify='center')
+entry_core_price.insert(0, "3650")
+entry_core_price.pack(pady=5)
 
-        # 결과창
-        self.res_frame = tk.Frame(container, bg='#000000', pady=20, mt=20)
-        self.res_frame.pack(fill='x', pady=20)
-        tk.Label(self.res_frame, text="ESTIMATED COST (1M)", bg='#000000', fg='#888', font=(10)).pack()
-        self.lbl_result = tk.Label(self.res_frame, text="0원", bg='#000000', fg='#D4AF37', font=('Courier', 24, 'bold'))
-        self.lbl_result.pack()
+create_label("4. 제품 두께 (T)").pack()
+entry_thickness = tk.Entry(root, font=font_input, justify='center')
+entry_thickness.insert(0, "150")
+entry_thickness.pack(pady=5)
 
-    def calculate(self):
-        try:
-            coil_p = float(self.ent_coil_price.get())
-            core_p = float(self.ent_core_price.get())
-            thick = float(self.ent_thickness.get())
-            core_type = self.var_core.get()
-            coil_type = self.var_coil_type.get()
+create_label("5. 코일 조합").pack()
+var_coil_type = tk.StringVar(value="내외")
+frame_coil = tk.Frame(root, bg='#1e1e1e')
+frame_coil.pack()
+tk.Radiobutton(frame_coil, text="내부/외부", variable=var_coil_type, value="내외", bg='#1e1e1e', fg='white', selectcolor='black').pack(side='left')
+tk.Radiobutton(frame_coil, text="내부/내부", variable=var_coil_type, value="내내", bg='#1e1e1e', fg='white', selectcolor='black').pack(side='left')
 
-            # 코일 중량 결정
-            coil_w = 8.867 if "외부" in coil_type else 8.164
-            
-            # 1. 코일비
-            cost_coil = coil_p * coil_w
-            
-            # 2. 심재비
-            cost_core = 0
-            if core_type == "EPS":
-                cost_core = (thick / 50) * core_p
-            elif "그라스울" in core_type:
-                density = 48 if "48k" in core_type else 64
-                cost_core = (thick / 1000) * density * 1.219 * core_p
-            elif core_type == "우레탄":
-                cost_core = (thick / 50) * core_p
+tk.Label(root, text="", bg='#1e1e1e').pack() # 공백
 
-            # 3. 가공비
-            total = cost_coil + cost_core + self.labor_cost + self.extra_cost
-            
-            self.lbl_result.config(text=f"{int(total):,}원")
-        except ValueError:
-            self.lbl_result.config(text="입력 오류")
+btn_calc = tk.Button(root, text="계산하기", command=calculate, bg='#d4af37', fg='black', font=("Arial", 12, "bold"), width=20, height=2)
+btn_calc.pack(pady=20)
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = WooriCostSolver(root)
-    root.mainloop()
+label_result = tk.Label(root, text="0 원", bg='#1e1e1e', fg='#d4af37', font=("Arial", 20, "bold"))
+label_result.pack()
+
+root.mainloop()
