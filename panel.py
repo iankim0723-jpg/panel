@@ -1,132 +1,109 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>우리 스틸 원가 마스터</title>
-    <style>
-        :root { --gold: #D4AF37; --bg: #121212; --card: #1E1E1E; --accent: #FF4D4D; }
-        body { background: var(--bg); color: #E0E0E0; font-family: 'Pretendard', sans-serif; margin: 0; padding: 20px; }
-        .app-container { max-width: 450px; margin: 0 auto; background: var(--card); border-radius: 20px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); border: 1px solid #333; }
-        h2 { color: var(--gold); text-align: center; letter-spacing: 2px; margin-bottom: 30px; }
+import tkinter as tk
+from tkinter import ttk
+
+class WooriCostSolver:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("WOORI COST SOLVER v1.0")
+        self.root.geometry("400x700")
+        self.root.configure(bg='#121212')  # 다크 모드 배경
+
+        # 기본값 설정
+        self.labor_cost = 2000
+        self.extra_cost = 700
         
-        .section-title { font-size: 0.8em; color: var(--gold); margin-bottom: 10px; font-weight: bold; }
-        .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .input-box { background: #2A2A2A; padding: 10px; border-radius: 10px; }
-        label { display: block; font-size: 0.75em; color: #888; margin-bottom: 5px; }
-        input, select { width: 100%; background: none; border: none; color: white; font-size: 1.1em; outline: none; box-sizing: border-box; }
+        self.setup_ui()
+
+    def setup_ui(self):
+        # 스타일 설정
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure("TLabel", background="#121212", foreground="#D4AF37", font=('Apple SD Gothic Neo', 10))
         
-        /* 홀덤 스타일 버튼 */
-        .toggle-group { display: flex; gap: 5px; margin-bottom: 15px; }
-        .toggle-btn { flex: 1; padding: 10px; background: #333; border: 1px solid #444; color: #888; border-radius: 8px; cursor: pointer; font-size: 0.9em; }
-        .toggle-btn.active { background: var(--gold); color: black; font-weight: bold; border-color: var(--gold); }
+        # 타이틀
+        tk.Label(self.root, text="WOORI COST SOLVER", bg='#121212', fg='#D4AF37', 
+                 font=('Arial', 18, 'bold'), pady=20).pack()
 
-        .result-area { margin-top: 25px; padding: 20px; background: #000; border-radius: 15px; border-left: 5px solid var(--gold); }
-        .result-label { font-size: 0.9em; color: #888; }
-        .result-price { font-size: 2.5em; font-weight: bold; color: var(--gold); margin: 5px 0; }
-        
-        button.calc-btn { width: 100%; padding: 18px; background: var(--gold); border: none; border-radius: 12px; font-weight: bold; font-size: 1.2em; margin-top: 10px; cursor: pointer; transition: 0.2s; }
-        button.calc-btn:active { transform: scale(0.98); opacity: 0.9; }
-    </style>
-</head>
-<body>
+        # 입력 영역 컨테이너
+        container = tk.Frame(self.root, bg='#121212', padx=30)
+        container.pack(fill='both', expand=True)
 
-<div class="app-container">
-    <h2>COST SOLVER</h2>
+        # 1. 코일 매입가
+        tk.Label(container, text="코일 매입가 (kg당)", bg='#121212', fg='#888').pack(anchor='w')
+        self.ent_coil_price = tk.Entry(container, bg='#2A2A2A', fg='white', insertbackground='white', borderwidth=0)
+        self.ent_coil_price.insert(0, "1100")
+        self.ent_coil_price.pack(fill='x', pady=(0, 15), ipady=8)
 
-    <div class="section-title">BASE PRICE (매입단가)</div>
-    <div class="input-row">
-        <div class="input-box"><label>코일 (kg)</label><input type="number" id="coilPrice" value="1100"></div>
-        <div class="input-box"><label>가공비 (고정)</label><input type="number" id="processFee" value="2700"></div>
-    </div>
+        # 2. 심재 종류 선택
+        tk.Label(container, text="심재 종류 선택", bg='#121212', fg='#888').pack(anchor='w')
+        self.var_core = tk.StringVar(value="EPS")
+        core_combo = ttk.Combobox(container, textvariable=self.var_core, values=["EPS", "그라스울(48k)", "그라스울(64k)", "우레탄"])
+        core_combo.pack(fill='x', pady=(0, 15), ipady=5)
 
-    <div class="section-title">MATERIAL (심재 선택)</div>
-    <div class="toggle-group" id="coreGroup">
-        <button class="toggle-btn active" onclick="setCore('EPS')">EPS</button>
-        <button class="toggle-btn" onclick="setCore('GW')">그라스울</button>
-        <button class="toggle-btn" onclick="setCore('URE')">우레탄</button>
-    </div>
+        # 3. 심재 매입 단가 (EPS 보드값 or GW kg가)
+        self.lbl_core_price = tk.Label(container, text="심재 단가 (EPS 50T 보드값)", bg='#121212', fg='#888')
+        self.lbl_core_price.pack(anchor='w')
+        self.ent_core_price = tk.Entry(container, bg='#2A2A2A', fg='white', insertbackground='white', borderwidth=0)
+        self.ent_core_price.insert(0, "3650")
+        self.ent_core_price.pack(fill='x', pady=(0, 15), ipady=8)
 
-    <div id="gwDensityArea" style="display:none;">
-        <div class="section-title">GW DENSITY (밀도)</div>
-        <div class="toggle-group">
-            <button class="toggle-btn active" id="btn48k" onclick="setDensity(48, 1770)">48K</button>
-            <button class="toggle-btn" id="btn64k" onclick="setDensity(64, 1600)">64K</button>
-        </div>
-    </div>
+        # 4. 두께 (T)
+        tk.Label(container, text="제품 두께 (T 입력)", bg='#121212', fg='#888').pack(anchor='w')
+        self.ent_thickness = tk.Entry(container, bg='#2A2A2A', fg='white', insertbackground='white', borderwidth=0)
+        self.ent_thickness.insert(0, "150")
+        self.ent_thickness.pack(fill='x', pady=(0, 15), ipady=8)
 
-    <div class="input-row">
-        <div class="input-box"><label id="coreLabel">EPS 50T 보드값</label><input type="number" id="corePrice" value="3650"></div>
-        <div class="input-box"><label>두께 (T)</label><input type="number" id="thickness" value="150"></div>
-    </div>
+        # 5. 코일 조합
+        tk.Label(container, text="코일 조합 선택", bg='#121212', fg='#888').pack(anchor='w')
+        self.var_coil_type = tk.StringVar(value="내부/외부 (1040/1219)")
+        coil_combo = ttk.Combobox(container, textvariable=self.var_coil_type, 
+                                  values=["내부/외부 (1040/1219)", "내부/내부 (1040/1040)"])
+        coil_combo.pack(fill='x', pady=(0, 20), ipady=5)
 
-    <div class="section-title">COIL TYPE (조합)</div>
-    <select id="coilWeight" class="input-box" style="width:100%; border:1px solid #444;">
-        <option value="8.867">내부(1040) / 외부(1219)</option>
-        <option value="8.164">내부(1040) / 내부(1040)</option>
-    </select>
+        # 계산 버튼
+        calc_btn = tk.Button(container, text="RUN CALCULATION", bg='#D4AF37', fg='black', 
+                             font=('Arial', 12, 'bold'), borderwidth=0, command=self.calculate)
+        calc_btn.pack(fill='x', ipady=15)
 
-    <button class="calc-btn" onclick="calculate()">RUN CALCULATION</button>
+        # 결과창
+        self.res_frame = tk.Frame(container, bg='#000000', pady=20, mt=20)
+        self.res_frame.pack(fill='x', pady=20)
+        tk.Label(self.res_frame, text="ESTIMATED COST (1M)", bg='#000000', fg='#888', font=(10)).pack()
+        self.lbl_result = tk.Label(self.res_frame, text="0원", bg='#000000', fg='#D4AF37', font=('Courier', 24, 'bold'))
+        self.lbl_result.pack()
 
-    <div class="result-area">
-        <div class="result-label">ESTIMATED PRODUCTION COST (1M)</div>
-        <div class="result-price" id="finalPrice">0원</div>
-    </div>
-</div>
+    def calculate(self):
+        try:
+            coil_p = float(self.ent_coil_price.get())
+            core_p = float(self.ent_core_price.get())
+            thick = float(self.ent_thickness.get())
+            core_type = self.var_core.get()
+            coil_type = self.var_coil_type.get()
 
-<script>
-    let currentCore = 'EPS';
-    let currentDensity = 48;
+            # 코일 중량 결정
+            coil_w = 8.867 if "외부" in coil_type else 8.164
+            
+            # 1. 코일비
+            cost_coil = coil_p * coil_w
+            
+            # 2. 심재비
+            cost_core = 0
+            if core_type == "EPS":
+                cost_core = (thick / 50) * core_p
+            elif "그라스울" in core_type:
+                density = 48 if "48k" in core_type else 64
+                cost_core = (thick / 1000) * density * 1.219 * core_p
+            elif core_type == "우레탄":
+                cost_core = (thick / 50) * core_p
 
-    function setCore(type) {
-        currentCore = type;
-        const btns = document.querySelectorAll('#coreGroup .toggle-btn');
-        btns.forEach(b => b.classList.remove('active'));
-        event.target.classList.add('active');
+            # 3. 가공비
+            total = cost_coil + cost_core + self.labor_cost + self.extra_cost
+            
+            self.lbl_result.config(text=f"{int(total):,}원")
+        except ValueError:
+            self.lbl_result.config(text="입력 오류")
 
-        const gwArea = document.getElementById('gwDensityArea');
-        const coreLabel = document.getElementById('coreLabel');
-        const coreInput = document.getElementById('corePrice');
-
-        if(type === 'GW') {
-            gwArea.style.display = 'block';
-            coreLabel.innerText = "GW kg당 매입가";
-            coreInput.value = (currentDensity === 48) ? 1770 : 1600;
-        } else {
-            gwArea.style.display = 'none';
-            coreLabel.innerText = type === 'EPS' ? "EPS 50T 보드값" : "우레탄 m당 원액비";
-            coreInput.value = type === 'EPS' ? 3650 : 18000;
-        }
-    }
-
-    function setDensity(k, price) {
-        currentDensity = k;
-        document.getElementById('btn48k').classList.toggle('active', k === 48);
-        document.getElementById('btn64k').classList.toggle('active', k === 64);
-        document.getElementById('corePrice').value = price;
-    }
-
-    function calculate() {
-        const coilP = parseFloat(document.getElementById('coilPrice').value);
-        const coreP = parseFloat(document.getElementById('corePrice').value);
-        const thick = parseFloat(document.getElementById('thickness').value);
-        const coilW = parseFloat(document.getElementById('coilWeight').value);
-        const procF = parseFloat(document.getElementById('processFee').value);
-
-        let coilTotal = coilP * coilW;
-        let coreTotal = 0;
-
-        if(currentCore === 'EPS') {
-            coreTotal = (thick / 50) * coreP;
-        } else if(currentCore === 'GW') {
-            coreTotal = (thick / 1000) * currentDensity * 1.219 * coreP;
-        } else { // 우레탄
-            coreTotal = (thick / 50) * coreP; 
-        }
-
-        const total = Math.round(coilTotal + coreTotal + procF);
-        document.getElementById('finalPrice').innerText = total.toLocaleString() + "원";
-    }
-</script>
-</body>
-</html>
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = WooriCostSolver(root)
+    root.mainloop()
