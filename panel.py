@@ -1,95 +1,71 @@
-import tkinter as tk
-from tkinter import messagebox
+import streamlit as st
 
-def calculate():
-    try:
-        # 1. 입력값 읽어오기
-        coil_p = float(entry_coil_price.get())
-        core_p = float(entry_core_price.get())
-        thick = float(entry_thickness.get())
+# 페이지 설정 (홀덤 솔버 스타일 다크 모드)
+st.set_page_config(page_title="WOORI COST SOLVER", layout="centered")
+
+# 다크 테마 커스텀 CSS
+st.markdown("""
+    <style>
+    .main { background-color: #000000; }
+    .stNumberInput, .stSelectbox { background-color: #1A1A1A !important; }
+    div[data-testid="stMetricValue"] { color: #D4AF37 !important; font-family: 'Courier New'; font-size: 2.5rem !important; }
+    .stButton>button { width: 100%; background-color: #D4AF37 !important; color: black !important; font-weight: bold; border-radius: 10px; height: 3em; }
+    h1, h2, h3 { color: #D4AF37 !important; text-align: center; }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("WOORI COST SOLVER")
+st.subheader("샌드위치 판넬 원가 계산기")
+
+# --- 입력 영역 ---
+with st.container():
+    st.write("### 1. 매입 단가 설정")
+    col1, col2 = st.columns(2)
+    with col1:
+        coil_price = st.number_input("코일 매입가 (kg당)", value=1100, step=10)
+    with col2:
+        process_fee = st.number_input("가공비 (인건비+소모품)", value=2700, step=100)
+
+    st.write("---")
+    st.write("### 2. 제품 사양 선택")
+    
+    core_type = st.radio("심재 종류", ["EPS", "그라스울(48k)", "그라스울(64k)", "우레탄"], horizontal=True)
+    
+    col3, col4 = st.columns(2)
+    with col3:
+        # 심재 단가 레이블 자동 변경
+        label = "EPS 50T 보드값" if core_type == "EPS" else "심재 매입 단가"
+        if "그라스울" in core_type: label = "GW kg당 단가"
+        if core_type == "우레탄": label = "우레탄 m당 원액비"
         
-        # 2. 가공비 (인건비 2000 + 소모품 700)
-        labor_plus_extra = 2700
+        default_price = 3650 if core_type == "EPS" else (1770 if "48k" in core_type else 1600)
+        core_price = st.number_input(label, value=default_price, step=10)
         
-        # 3. 코일 조합에 따른 중량 설정
-        coil_type = var_coil_type.get()
-        # 내부/외부(1040+1219) = 8.867kg, 내부/내부(1040+1040) = 8.164kg
-        coil_w = 8.867 if coil_type == "내외" else 8.164
-        
-        # 4. 심재 종류에 따른 계산
-        core_type = var_core_type.get()
-        cost_core = 0
-        
-        if core_type == "EPS":
-            # EPS는 50T 보드값 기준 비례 계산
-            cost_core = (thick / 50) * core_p
-        elif core_type == "GW48":
-            # 그라스울 48k: 두께(m) * 밀도(48) * 폭(1.219) * kg단가
-            cost_core = (thick / 1000) * 48 * 1.219 * core_p
-        elif core_type == "GW64":
-            # 그라스울 64k: 두께(m) * 밀도(64) * 폭(1.219) * kg단가
-            cost_core = (thick / 1000) * 64 * 1.219 * core_p
-        else: # 우레탄
-            cost_core = (thick / 50) * core_p
+    with col4:
+        thickness = st.number_input("제품 두께 (T)", value=150, step=5)
 
-        # 5. 최종 합계
-        total = (coil_p * coil_w) + cost_core + labor_plus_extra
-        
-        label_result.config(text=f"{int(total):,} 원")
-        
-    except ValueError:
-        messagebox.showerror("입력 오류", "숫자만 입력해주세요 (소수점 가능)")
+    coil_option = st.selectbox("코일 조합 선택", ["내부/외부 (1040/1219)", "내부/내부 (1040/1040)"])
 
-# --- GUI 설정 ---
-root = tk.Tk()
-root.title("WOORI COST SOLVER")
-root.geometry("350x550")
-root.configure(bg='#1e1e1e') # 다크모드 배경
+# --- 계산 로직 ---
+coil_w = 8.867 if "외부" in coil_option else 8.164
+cost_coil = coil_price * coil_w
 
-# 폰트 설정
-font_label = ("Arial", 10, "bold")
-font_input = ("Arial", 12)
+cost_core = 0
+if core_type == "EPS":
+    cost_core = (thickness / 50) * core_price
+elif "그라스울" in core_type:
+    density = 48 if "48k" in core_type else 64
+    cost_core = (thickness / 1000) * density * 1.219 * core_price
+else: # 우레탄
+    cost_core = (thickness / 50) * core_price
 
-# 입력 필드들
-def create_label(text):
-    return tk.Label(root, text=text, bg='#1e1e1e', fg='#d4af37', font=font_label)
+total_cost = int(cost_coil + cost_core + process_fee)
 
-create_label("\n1. 코일 매입가 (kg당)").pack()
-entry_coil_price = tk.Entry(root, font=font_input, justify='center')
-entry_coil_price.insert(0, "1100")
-entry_coil_price.pack(pady=5)
+# --- 결과 출력 ---
+st.write("---")
+st.metric(label="예상 제조 원가 (1m 기준)", value=f"{total_cost:,} 원")
 
-create_label("2. 심재 종류").pack()
-var_core_type = tk.StringVar(value="EPS")
-frame_core = tk.Frame(root, bg='#1e1e1e')
-frame_core.pack()
-tk.Radiobutton(frame_core, text="EPS", variable=var_core_type, value="EPS", bg='#1e1e1e', fg='white', selectcolor='black').pack(side='left')
-tk.Radiobutton(frame_core, text="GW48k", variable=var_core_type, value="GW48", bg='#1e1e1e', fg='white', selectcolor='black').pack(side='left')
-tk.Radiobutton(frame_core, text="GW64k", variable=var_core_type, value="GW64", bg='#1e1e1e', fg='white', selectcolor='black').pack(side='left')
-
-create_label("3. 심재 단가 (보드값 또는 kg단가)").pack()
-entry_core_price = tk.Entry(root, font=font_input, justify='center')
-entry_core_price.insert(0, "3650")
-entry_core_price.pack(pady=5)
-
-create_label("4. 제품 두께 (T)").pack()
-entry_thickness = tk.Entry(root, font=font_input, justify='center')
-entry_thickness.insert(0, "150")
-entry_thickness.pack(pady=5)
-
-create_label("5. 코일 조합").pack()
-var_coil_type = tk.StringVar(value="내외")
-frame_coil = tk.Frame(root, bg='#1e1e1e')
-frame_coil.pack()
-tk.Radiobutton(frame_coil, text="내부/외부", variable=var_coil_type, value="내외", bg='#1e1e1e', fg='white', selectcolor='black').pack(side='left')
-tk.Radiobutton(frame_coil, text="내부/내부", variable=var_coil_type, value="내내", bg='#1e1e1e', fg='white', selectcolor='black').pack(side='left')
-
-tk.Label(root, text="", bg='#1e1e1e').pack() # 공백
-
-btn_calc = tk.Button(root, text="계산하기", command=calculate, bg='#d4af37', fg='black', font=("Arial", 12, "bold"), width=20, height=2)
-btn_calc.pack(pady=20)
-
-label_result = tk.Label(root, text="0 원", bg='#1e1e1e', fg='#d4af37', font=("Arial", 20, "bold"))
-label_result.pack()
-
-root.mainloop()
+if st.button("카톡 공유용 텍스트 복사"):
+    share_text = f"[우리 스틸] {core_type} {thickness}T 원가: {total_cost:,}원"
+    st.code(share_text)
+    st.success("위 코드를 복사해서 카톡에 붙여넣으세요!")
